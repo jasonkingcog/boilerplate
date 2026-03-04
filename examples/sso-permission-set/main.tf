@@ -13,7 +13,7 @@ module "s3_reader_permission_set" {
   group_name = "s3-readers"
 
   # Must match the policy name deployed in each target account.
-  # See the s3-reader example output "policy_name".
+  # See the s3-reader example output "customer_managed_policy_arns".
   policy_name = "s3-reader"
   policy_path = "/"
 

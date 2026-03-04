@@ -7,15 +7,33 @@ resource "aws_iam_role" "this" {
   tags                 = var.tags
 }
 
+# Customer-managed policies — created and attached
 resource "aws_iam_policy" "this" {
-  name        = var.name
+  for_each    = var.customer_managed_policies
+  name        = each.key
   path        = var.path
   description = var.description
-  policy      = file(var.permissions_policy_file)
+  policy      = file(each.value)
   tags        = var.tags
 }
 
-resource "aws_iam_role_policy_attachment" "this" {
+resource "aws_iam_role_policy_attachment" "customer_managed" {
+  for_each   = var.customer_managed_policies
   role       = aws_iam_role.this.name
-  policy_arn = aws_iam_policy.this.arn
+  policy_arn = aws_iam_policy.this[each.key].arn
+}
+
+# AWS-managed or pre-existing policies — attached by ARN
+resource "aws_iam_role_policy_attachment" "aws_managed" {
+  for_each   = toset(var.aws_managed_policy_arns)
+  role       = aws_iam_role.this.name
+  policy_arn = each.value
+}
+
+# Inline policies — embedded directly in the role
+resource "aws_iam_role_policy" "this" {
+  for_each = var.inline_policies
+  name     = each.key
+  role     = aws_iam_role.this.id
+  policy   = file(each.value)
 }

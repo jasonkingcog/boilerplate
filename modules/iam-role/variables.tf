@@ -1,10 +1,5 @@
 variable "name" {
-  description = "Name for the IAM role and attached customer-managed policy."
-  type        = string
-}
-
-variable "permissions_policy_file" {
-  description = "Path to a JSON file containing the IAM permissions policy document."
+  description = "Name for the IAM role."
   type        = string
 }
 
@@ -13,14 +8,32 @@ variable "trust_policy_file" {
   type        = string
 }
 
+variable "customer_managed_policies" {
+  description = "Customer-managed policies to create and attach. Key = policy name, value = path to JSON policy file."
+  type        = map(string)
+  default     = {}
+}
+
+variable "aws_managed_policy_arns" {
+  description = "ARNs of AWS-managed or pre-existing customer-managed policies to attach to the role."
+  type        = list(string)
+  default     = []
+}
+
+variable "inline_policies" {
+  description = "Inline policies to embed directly in the role. Key = policy name, value = path to JSON policy file."
+  type        = map(string)
+  default     = {}
+}
+
 variable "description" {
-  description = "Description applied to both the IAM role and the managed policy."
+  description = "Description applied to the IAM role and any created customer-managed policies."
   type        = string
   default     = ""
 }
 
 variable "path" {
-  description = "IAM path under which the role and policy are created."
+  description = "IAM path under which the role and customer-managed policies are created."
   type        = string
   default     = "/"
 }
