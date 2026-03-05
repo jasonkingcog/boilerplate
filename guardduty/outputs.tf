@@ -22,8 +22,3 @@ output "sentinel_role_arn" {
   description = "ARN of the IAM role for Sentinel to assume. Enter this in the Sentinel S3 connector under 'Role to assume'."
   value       = aws_iam_role.sentinel_guardduty.arn
 }
-
-output "sentinel_external_id" {
-  description = "External ID for the Sentinel connector. Enter this in the Sentinel S3 connector under 'External ID'."
-  value       = "${var.security_account_id}-sentinel-guardduty"
-}

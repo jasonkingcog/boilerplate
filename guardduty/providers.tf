@@ -10,7 +10,7 @@ terraform {
 }
 
 # ── To add a new region ────────────────────────────────────────────────────────
-# 1. Add two provider blocks below (management_<region> and security_<region>)
+# 1. Add three provider blocks below (management_<region> with no assume_role, security_<region>, log_archive_<region>)
 # 2. Add a module call in main.tf referencing those providers
 # 3. Add an output block in outputs.tf
 
@@ -19,7 +19,7 @@ terraform {
 provider "aws" {
   alias  = "management_eu_west_2"
   region = "eu-west-2"
-  assume_role { role_arn = var.management_account_role_arn }
+  # No assume_role — pipeline runs with management account credentials directly
 }
 
 provider "aws" {
@@ -28,16 +28,28 @@ provider "aws" {
   assume_role { role_arn = var.security_account_role_arn }
 }
 
+provider "aws" {
+  alias  = "log_archive_eu_west_2"
+  region = "eu-west-2"
+  assume_role { role_arn = var.log_archive_account_role_arn }
+}
+
 # ── eu-west-1 ──────────────────────────────────────────────────────────────────
 
 provider "aws" {
   alias  = "management_eu_west_1"
   region = "eu-west-1"
-  assume_role { role_arn = var.management_account_role_arn }
+  # No assume_role — pipeline runs with management account credentials directly
 }
 
 provider "aws" {
   alias  = "security_eu_west_1"
   region = "eu-west-1"
   assume_role { role_arn = var.security_account_role_arn }
+}
+
+provider "aws" {
+  alias  = "log_archive_eu_west_1"
+  region = "eu-west-1"
+  assume_role { role_arn = var.log_archive_account_role_arn }
 }

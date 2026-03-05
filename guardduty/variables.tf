@@ -8,16 +8,6 @@ variable "security_account_id" {
   }
 }
 
-variable "management_account_role_arn" {
-  description = <<-EOT
-    ARN of the IAM role to assume in the management account.
-    The role must allow: guardduty:EnableOrganizationAdminAccount,
-    organizations:EnableAWSServiceAccess, organizations:RegisterDelegatedAdministrator.
-    In a Control Tower environment this is typically AWSControlTowerExecution.
-  EOT
-  type        = string
-}
-
 variable "security_account_role_arn" {
   description = <<-EOT
     ARN of the IAM role to assume in the Security/Audit account.
@@ -28,16 +18,36 @@ variable "security_account_role_arn" {
   type        = string
 }
 
-variable "sentinel_aws_account_id" {
+variable "log_archive_account_id" {
+  description = "AWS account ID of the Log Archive account where findings buckets are created."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.log_archive_account_id))
+    error_message = "Must be a 12-digit AWS account ID."
+  }
+}
+
+variable "log_archive_account_role_arn" {
   description = <<-EOT
-    AWS account ID used by Microsoft Sentinel to assume the reader role.
-    Find this in the Sentinel Amazon Web Services S3 connector setup page in the Azure portal.
+    ARN of the IAM role to assume in the Log Archive account.
+    The role must allow: s3:*, kms:*, sqs:*, iam:*, sts:GetCallerIdentity.
+    In a Control Tower environment this is typically AWSControlTowerExecution.
+  EOT
+  type        = string
+}
+
+variable "sentinel_workspace_id" {
+  description = <<-EOT
+    Microsoft Sentinel workspace ID (GUID).
+    Find this in the Azure portal under Sentinel → Settings → Workspace settings.
+    Used in the IAM role trust policy RoleSessionName condition.
   EOT
   type        = string
 
   validation {
-    condition     = can(regex("^[0-9]{12}$", var.sentinel_aws_account_id))
-    error_message = "Must be a 12-digit AWS account ID."
+    condition     = can(regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", var.sentinel_workspace_id))
+    error_message = "Must be a valid GUID in the format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx."
   }
 }
 

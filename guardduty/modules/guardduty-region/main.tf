@@ -3,14 +3,14 @@ terraform {
     aws = {
       source                = "hashicorp/aws"
       version               = ">= 5.0.0"
-      configuration_aliases = [aws.management, aws.security]
+      configuration_aliases = [aws.management, aws.security, aws.log_archive]
     }
   }
 }
 
 # Used to name region-specific resources (e.g. S3 bucket, KMS alias)
 data "aws_region" "current" {
-  provider = aws.security
+  provider = aws.log_archive
 }
 
 # ── Management Account ─────────────────────────────────────────────────────────
@@ -51,11 +51,12 @@ resource "aws_guardduty_organization_configuration" "this" {
   }
 }
 
-# ── KMS Key ────────────────────────────────────────────────────────────────────
+# ── KMS Key (Log Archive account) ──────────────────────────────────────────────
 # GuardDuty requires findings to be KMS-encrypted at rest.
+# The key lives in the Log Archive account alongside the findings bucket.
 
 resource "aws_kms_key" "findings" {
-  provider                = aws.security
+  provider                = aws.log_archive
   description             = "GuardDuty findings encryption — ${data.aws_region.current.name}"
   enable_key_rotation     = true
   deletion_window_in_days = 7
@@ -68,7 +69,7 @@ resource "aws_kms_key" "findings" {
         Sid    = "EnableRootAccess"
         Effect = "Allow"
         Principal = {
-          AWS = "arn:aws:iam::${var.security_account_id}:root"
+          AWS = "arn:aws:iam::${var.log_archive_account_id}:root"
         }
         Action   = "kms:*"
         Resource = "*"
@@ -87,21 +88,21 @@ resource "aws_kms_key" "findings" {
 }
 
 resource "aws_kms_alias" "findings" {
-  provider      = aws.security
+  provider      = aws.log_archive
   name          = "alias/guardduty-findings-${data.aws_region.current.name}"
   target_key_id = aws_kms_key.findings.key_id
 }
 
-# ── S3 Bucket ──────────────────────────────────────────────────────────────────
+# ── S3 Bucket (Log Archive account) ───────────────────────────────────────────
 
 resource "aws_s3_bucket" "findings" {
-  provider = aws.security
-  bucket   = "guardduty-findings-${var.security_account_id}-${data.aws_region.current.name}"
+  provider = aws.log_archive
+  bucket   = "guardduty-findings-${var.log_archive_account_id}-${data.aws_region.current.name}"
   tags     = var.tags
 }
 
 resource "aws_s3_bucket_versioning" "findings" {
-  provider = aws.security
+  provider = aws.log_archive
   bucket   = aws_s3_bucket.findings.id
 
   versioning_configuration {
@@ -110,7 +111,7 @@ resource "aws_s3_bucket_versioning" "findings" {
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "findings" {
-  provider = aws.security
+  provider = aws.log_archive
   bucket   = aws_s3_bucket.findings.id
 
   rule {
@@ -122,7 +123,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "findings" {
 }
 
 resource "aws_s3_bucket_public_access_block" "findings" {
-  provider                = aws.security
+  provider                = aws.log_archive
   bucket                  = aws_s3_bucket.findings.id
   block_public_acls       = true
   block_public_policy     = true
@@ -131,7 +132,7 @@ resource "aws_s3_bucket_public_access_block" "findings" {
 }
 
 resource "aws_s3_bucket_policy" "findings" {
-  provider = aws.security
+  provider = aws.log_archive
   bucket   = aws_s3_bucket.findings.id
 
   policy = jsonencode({
@@ -179,12 +180,12 @@ resource "aws_s3_bucket_policy" "findings" {
   })
 }
 
-# ── SQS Queue ──────────────────────────────────────────────────────────────────
+# ── SQS Queue (Log Archive account) ───────────────────────────────────────────
 # Receives S3 event notifications — Sentinel polls this to know when new
 # findings have landed in S3.
 
 resource "aws_sqs_queue" "findings" {
-  provider                   = aws.security
+  provider                   = aws.log_archive
   name                       = "guardduty-findings-${data.aws_region.current.name}"
   message_retention_seconds  = 86400 # 24 hours
   visibility_timeout_seconds = 300
@@ -192,7 +193,7 @@ resource "aws_sqs_queue" "findings" {
 }
 
 resource "aws_sqs_queue_policy" "findings" {
-  provider  = aws.security
+  provider  = aws.log_archive
   queue_url = aws_sqs_queue.findings.id
 
   policy = jsonencode({
@@ -217,7 +218,7 @@ resource "aws_sqs_queue_policy" "findings" {
 }
 
 resource "aws_s3_bucket_notification" "findings" {
-  provider = aws.security
+  provider = aws.log_archive
   bucket   = aws_s3_bucket.findings.id
 
   queue {
@@ -229,6 +230,10 @@ resource "aws_s3_bucket_notification" "findings" {
 }
 
 # ── GuardDuty Publishing Destination ──────────────────────────────────────────
+# Remains in the Security/Audit account — it references the detector there.
+# GuardDuty writes cross-account to the Log Archive S3 bucket using the
+# guardduty.amazonaws.com service principal, so no additional cross-account
+# IAM configuration is required beyond the bucket and KMS key policies above.
 
 resource "aws_guardduty_publishing_destination" "this" {
   provider        = aws.security

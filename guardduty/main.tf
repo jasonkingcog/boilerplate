@@ -5,34 +5,51 @@ module "guardduty_eu_west_2" {
   source = "./modules/guardduty-region"
 
   providers = {
-    aws.management = aws.management_eu_west_2
-    aws.security   = aws.security_eu_west_2
+    aws.management  = aws.management_eu_west_2
+    aws.security    = aws.security_eu_west_2
+    aws.log_archive = aws.log_archive_eu_west_2
   }
 
-  security_account_id = var.security_account_id
-  tags                = var.tags
+  security_account_id    = var.security_account_id
+  log_archive_account_id = var.log_archive_account_id
+  tags                   = var.tags
 }
 
 module "guardduty_eu_west_1" {
   source = "./modules/guardduty-region"
 
   providers = {
-    aws.management = aws.management_eu_west_1
-    aws.security   = aws.security_eu_west_1
+    aws.management  = aws.management_eu_west_1
+    aws.security    = aws.security_eu_west_1
+    aws.log_archive = aws.log_archive_eu_west_1
   }
 
-  security_account_id = var.security_account_id
-  tags                = var.tags
+  security_account_id    = var.security_account_id
+  log_archive_account_id = var.log_archive_account_id
+  tags                   = var.tags
 }
 
-# ── Sentinel IAM Role ──────────────────────────────────────────────────────────
-# IAM is global — created once in the Security account regardless of how many
-# regions are enabled. Grants Sentinel read access to findings across all regions.
+# ── OIDC Identity Provider (Log Archive account) ───────────────────────────────
+# The Log Archive account already has an OIDC provider for sts.windows.net
+# from an existing Sentinel S3 connector. Reference it via data source rather
+# than creating a new one.
+
+data "aws_iam_openid_connect_provider" "sentinel" {
+  provider = aws.log_archive_eu_west_2
+  arn      = "arn:aws:iam::${var.log_archive_account_id}:oidc-provider/sts.windows.net/33e01921-4d64-4f8c-a055-5bdaffd5e33d"
+}
+
+# ── Sentinel IAM Role (Log Archive account) ────────────────────────────────────
+# IAM is global — created once in the Log Archive account where the findings
+# buckets live. Grants Sentinel read access to findings across all regions.
+#
+# The role name MUST start with "OIDC_" — Microsoft Sentinel enforces this prefix.
+# The RoleSessionName condition MUST start with "MicrosoftSentinel_".
 
 resource "aws_iam_role" "sentinel_guardduty" {
-  provider    = aws.security_eu_west_2
-  name        = "sentinel-guardduty-reader"
-  description = "Assumed by Microsoft Sentinel to ingest GuardDuty findings from S3."
+  provider    = aws.log_archive_eu_west_2
+  name        = "OIDC_MicrosoftSentinelGuardDuty"
+  description = "Assumed by Microsoft Sentinel via OIDC to ingest GuardDuty findings from S3."
   tags        = var.tags
 
   assume_role_policy = jsonencode({
@@ -41,12 +58,13 @@ resource "aws_iam_role" "sentinel_guardduty" {
       {
         Effect = "Allow"
         Principal = {
-          AWS = "arn:aws:iam::${var.sentinel_aws_account_id}:root"
+          Federated = data.aws_iam_openid_connect_provider.sentinel.arn
         }
-        Action = "sts:AssumeRole"
+        Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringEquals = {
-            "sts:ExternalId" = "${var.security_account_id}-sentinel-guardduty"
+            "sts.windows.net/33e01921-4d64-4f8c-a055-5bdaffd5e33d/:aud" = "api://1462b192-27f7-4cb9-8523-0f4ecb54b47e"
+            "sts:RoleSessionName"                                         = "MicrosoftSentinel_${var.sentinel_workspace_id}"
           }
         }
       }
@@ -55,7 +73,7 @@ resource "aws_iam_role" "sentinel_guardduty" {
 }
 
 resource "aws_iam_role_policy" "sentinel_guardduty" {
-  provider = aws.security_eu_west_2
+  provider = aws.log_archive_eu_west_2
   name     = "sentinel-guardduty-access"
   role     = aws_iam_role.sentinel_guardduty.id
 
