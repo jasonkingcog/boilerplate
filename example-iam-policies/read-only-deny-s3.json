@@ -1,0 +1,22 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "*:Get*",
+        "*:List*",
+        "*:Describe*",
+        "*:View*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyS3",
+      "Effect": "Deny",
+      "Action": "s3:*",
+      "Resource": "*"
+    }
+  ]
+}

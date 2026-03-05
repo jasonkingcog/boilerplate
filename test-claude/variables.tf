@@ -4,17 +4,17 @@ variable "permission_sets" {
     Each set supports three policy types:
       - aws_managed_policy_arns:  ARNs of AWS-managed policies (always available in all accounts)
       - customer_managed_policies: Policies referenced by name/path (must exist in each target account)
-      - inline_policy:            A JSON policy string embedded directly in the permission set
+      - inline_policy_file:        Path to a JSON file embedded directly in the permission set
   EOT
   type = map(object({
-    description              = string
-    session_duration         = string
-    aws_managed_policy_arns  = list(string)
+    description             = string
+    session_duration        = string
+    aws_managed_policy_arns = list(string)
     customer_managed_policies = list(object({
       name = string
       path = string
     }))
-    inline_policy = optional(string)
+    inline_policy_file = optional(string)
   }))
   default = {}
 }
@@ -36,7 +36,7 @@ variable "assignments" {
 variable "region" {
   description = "AWS region where IAM Identity Center is deployed."
   type        = string
-  default     = "us-east-1"
+  default     = "eu-west-2"
 }
 
 variable "tags" {

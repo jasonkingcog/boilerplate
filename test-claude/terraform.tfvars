@@ -1,4 +1,4 @@
-region = "us-east-1"
+region = "eu-west-2"
 
 tags = {
   ManagedBy = "terraform"
@@ -13,20 +13,20 @@ permission_sets = {
 
   # Read-only access to all services — suitable for auditors and on-call observers.
   "ReadOnly" = {
-    description              = "Read-only access to all AWS services."
-    session_duration         = "PT1H"
-    aws_managed_policy_arns  = ["arn:aws:iam::aws:policy/ReadOnlyAccess"]
+    description               = "Read-only access to all AWS services."
+    session_duration          = "PT4H"
+    aws_managed_policy_arns   = ["arn:aws:iam::aws:policy/ReadOnlyAccess"]
     customer_managed_policies = []
-    inline_policy            = null
+    inline_policy_file        = null
   }
 
   # Power user — full access except IAM. Suitable for developers.
   "PowerUser" = {
-    description              = "Full access to AWS services excluding IAM management."
-    session_duration         = "PT8H"
-    aws_managed_policy_arns  = ["arn:aws:iam::aws:policy/PowerUserAccess"]
+    description               = "Full access to AWS services excluding IAM management."
+    session_duration          = "PT8H"
+    aws_managed_policy_arns   = ["arn:aws:iam::aws:policy/PowerUserAccess"]
     customer_managed_policies = []
-    inline_policy            = null
+    inline_policy_file        = null
   }
 
   # Network admin — uses an AWS job function policy plus a customer-managed policy
@@ -39,7 +39,7 @@ permission_sets = {
     ]
     customer_managed_policies = [
       {
-        name = "custom-network-policy"
+        name = "stw-prod-read-only"
         path = "/"
       }
     ]
@@ -55,16 +55,7 @@ permission_sets = {
       "arn:aws:iam::aws:policy/SecurityAudit"
     ]
     customer_managed_policies = []
-    inline_policy = jsonencode({
-      Version = "2012-10-17"
-      Statement = [
-        {
-          Effect   = "Allow"
-          Action   = ["guardduty:Get*", "guardduty:List*"]
-          Resource = "*"
-        }
-      ]
-    })
+    inline_policy_file        = "./policies/security-auditor-inline.json"
   }
 }
 

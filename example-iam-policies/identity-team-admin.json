@@ -1,0 +1,123 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SSOPermissionSetManagement",
+      "Effect": "Allow",
+      "Action": [
+        "sso:CreatePermissionSet",
+        "sso:UpdatePermissionSet",
+        "sso:DeletePermissionSet",
+        "sso:DescribePermissionSet",
+        "sso:DescribePermissionSetProvisioningStatus",
+        "sso:ListPermissionSets",
+        "sso:ListPermissionSetsProvisionedToAccount",
+        "sso:ProvisionPermissionSet",
+        "sso:ListTagsForResource",
+        "sso:TagResource",
+        "sso:UntagResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SSOPolicyAttachments",
+      "Effect": "Allow",
+      "Action": [
+        "sso:AttachManagedPolicyToPermissionSet",
+        "sso:DetachManagedPolicyFromPermissionSet",
+        "sso:ListManagedPoliciesInPermissionSet",
+        "sso:AttachCustomerManagedPolicyReferenceToPermissionSet",
+        "sso:DetachCustomerManagedPolicyReferenceFromPermissionSet",
+        "sso:ListCustomerManagedPolicyReferencesInPermissionSet",
+        "sso:PutInlinePolicyToPermissionSet",
+        "sso:DeleteInlinePolicyFromPermissionSet",
+        "sso:GetInlinePolicyForPermissionSet",
+        "sso:PutPermissionsBoundaryToPermissionSet",
+        "sso:DeletePermissionsBoundaryFromPermissionSet",
+        "sso:GetPermissionsBoundaryForPermissionSet"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SSOAccountAssignments",
+      "Effect": "Allow",
+      "Action": [
+        "sso:CreateAccountAssignment",
+        "sso:DeleteAccountAssignment",
+        "sso:DescribeAccountAssignmentCreationStatus",
+        "sso:DescribeAccountAssignmentDeletionStatus",
+        "sso:ListAccountAssignments",
+        "sso:ListAccountAssignmentCreationStatus",
+        "sso:ListAccountAssignmentDeletionStatus",
+        "sso:ListAccountsForProvisionedPermissionSet"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SSOInstanceRead",
+      "Effect": "Allow",
+      "Action": [
+        "sso:ListInstances",
+        "sso:DescribeRegisteredRegions"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IdentityStoreRead",
+      "Effect": "Allow",
+      "Action": [
+        "identitystore:DescribeGroup",
+        "identitystore:ListGroups",
+        "identitystore:GetGroupId",
+        "identitystore:DescribeUser",
+        "identitystore:ListUsers",
+        "identitystore:GetUserId"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IAMPolicyManagement",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicies",
+        "iam:ListPolicyVersions",
+        "iam:ListEntitiesForPolicy",
+        "iam:ListPolicyTags",
+        "iam:SetDefaultPolicyVersion",
+        "iam:TagPolicy",
+        "iam:UntagPolicy"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IAMRoleManagement",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:UpdateRole",
+        "iam:UpdateRoleDescription",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:ListRoles",
+        "iam:ListRoleTags",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:PutRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:DeleteRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

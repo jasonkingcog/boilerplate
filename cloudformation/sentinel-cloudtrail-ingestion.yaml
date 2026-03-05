@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Creates the CloudWatch Logs group and IAM roles needed to deliver the Control
+  Tower org CloudTrail trail to Microsoft Sentinel.
+  Deploy this in the MANAGEMENT ACCOUNT where the org trail lives.
+
+  After deployment, run the following CLI command to point the trail at the log group
+  (the exact command is provided in the stack Outputs):
+
+    aws cloudtrail update-trail \
+      --name <TrailName> \
+      --cloud-watch-logs-log-group-arn <LogGroupArn>:* \
+      --cloud-watch-logs-role-arn <CloudTrailCWLRoleArn> \
+      --region <region>
+
+Parameters:
+  TrailName:
+    Type: String
+    Default: aws-controltower-BaselineCloudTrail
+    Description: Name of the existing Control Tower CloudTrail trail to update.
+
+  LogGroupName:
+    Type: String
+    Default: /aws/cloudtrail/org
+    Description: Name of the CloudWatch Logs group to create for CloudTrail delivery.
+
+  LogGroupRetentionDays:
+    Type: Number
+    Default: 90
+    AllowedValues: [7, 14, 30, 60, 90, 180, 365, 731]
+    Description: Number of days to retain logs in CloudWatch Logs.
+
+  SentinelAwsAccountId:
+    Type: String
+    Description: >
+      AWS account ID used by Microsoft Sentinel to assume the reader role.
+      Find this in the Sentinel Amazon Web Services connector setup page in the Azure portal.
+    AllowedPattern: "[0-9]{12}"
+    ConstraintDescription: Must be a 12-digit AWS account ID.
+
+Resources:
+
+  # ── CloudWatch Logs Group ──────────────────────────────────────────────────
+
+  CloudTrailLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref LogGroupName
+      RetentionInDays: !Ref LogGroupRetentionDays
+
+  # ── IAM Role: CloudTrail → CloudWatch Logs ─────────────────────────────────
+  # CloudTrail assumes this role to write events to the log group.
+
+  CloudTrailCWLRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudtrail-cloudwatch-logs-delivery
+      Description: Allows the org CloudTrail trail to deliver events to CloudWatch Logs.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: cwl-delivery
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "${CloudTrailLogGroup.Arn}:*"
+
+  # ── IAM Role: Sentinel → CloudWatch Logs ───────────────────────────────────
+  # Sentinel assumes this role to read CloudTrail events from the log group.
+
+  SentinelCloudWatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: sentinel-cloudwatch-logs-reader
+      Description: Assumed by Microsoft Sentinel to read CloudTrail logs from CloudWatch Logs.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${SentinelAwsAccountId}:root"
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                # Prevents confused deputy attacks. Use this value in the Sentinel connector.
+                sts:ExternalId: !Sub "${AWS::AccountId}-sentinel"
+      Policies:
+        - PolicyName: cloudwatch-logs-read
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                Resource: !GetAtt CloudTrailLogGroup.Arn
+              - Effect: Allow
+                Action:
+                  - logs:GetLogEvents
+                  - logs:FilterLogEvents
+                Resource: !Sub "${CloudTrailLogGroup.Arn}:*"
+
+Outputs:
+
+  LogGroupArn:
+    Description: ARN of the CloudWatch Logs group.
+    Value: !GetAtt CloudTrailLogGroup.Arn
+
+  CloudTrailCWLRoleArn:
+    Description: ARN of the IAM role for CloudTrail to deliver to CloudWatch Logs.
+    Value: !GetAtt CloudTrailCWLRole.Arn
+
+  SentinelRoleArn:
+    Description: >
+      ARN of the IAM role for Sentinel to assume.
+      Enter this in the Sentinel AWS connector under "Role to assume".
+    Value: !GetAtt SentinelCloudWatchRole.Arn
+
+  SentinelExternalId:
+    Description: >
+      External ID for the Sentinel connector.
+      Enter this in the Sentinel AWS connector under "External ID".
+    Value: !Sub "${AWS::AccountId}-sentinel"
+
+  UpdateTrailCommand:
+    Description: >
+      Run this CLI command after the stack deploys to point the trail at the log group.
+    Value: !Sub >-
+      aws cloudtrail update-trail
+      --name ${TrailName}
+      --cloud-watch-logs-log-group-arn ${CloudTrailLogGroup.Arn}:*
+      --cloud-watch-logs-role-arn ${CloudTrailCWLRole.Arn}
+      --region ${AWS::Region}
