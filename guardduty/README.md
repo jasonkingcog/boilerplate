@@ -20,9 +20,9 @@ This is a **one-time operation**. Once applied, GuardDuty automatically enables 
 ### Per region — Log Archive account
 | Resource | Purpose |
 |---|---|
-| KMS key | Encrypts findings at rest (required by GuardDuty) |
+| KMS key | Encrypts findings at rest (required by GuardDuty) and SQS messages in transit |
 | S3 bucket | Receives exported findings from GuardDuty |
-| SQS queue | Receives S3 event notifications — Sentinel polls this |
+| SQS queue | Receives S3 event notifications — Sentinel polls this; encrypted with the findings KMS key |
 
 ### Once (global) — Log Archive account
 | Resource | Purpose |

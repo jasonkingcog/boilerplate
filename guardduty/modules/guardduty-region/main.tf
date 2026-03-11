@@ -82,6 +82,20 @@ resource "aws_kms_key" "findings" {
         }
         Action   = ["kms:GenerateDataKey", "kms:Encrypt"]
         Resource = "*"
+      },
+      {
+        Sid    = "AllowS3SQSEncryption"
+        Effect = "Allow"
+        Principal = {
+          Service = "s3.amazonaws.com"
+        }
+        Action   = ["kms:GenerateDataKey", "kms:Decrypt"]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = var.log_archive_account_id
+          }
+        }
       }
     ]
   })
@@ -189,6 +203,7 @@ resource "aws_sqs_queue" "findings" {
   name                       = "guardduty-findings-${data.aws_region.current.name}"
   message_retention_seconds  = 86400 # 24 hours
   visibility_timeout_seconds = 300
+  kms_master_key_id          = aws_kms_key.findings.arn
   tags                       = var.tags
 }
 
