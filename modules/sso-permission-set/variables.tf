@@ -8,15 +8,16 @@ variable "group_name" {
   type        = string
 }
 
-variable "policy_name" {
-  description = "Name of the customer-managed IAM policy to attach to the permission set. The policy must exist in every target account under the same name and path."
+variable "inline_policy" {
+  description = "Inline policy document to attach to the permission set, as a JSON string. Use jsonencode() or the aws_iam_policy_document data source to produce the value. IAM Identity Center supports only one inline policy per permission set."
   type        = string
+  default     = null
 }
 
-variable "policy_path" {
-  description = "IAM path of the customer-managed policy."
-  type        = string
-  default     = "/"
+variable "aws_managed_policy_arns" {
+  description = "ARNs of AWS-managed policies to attach to the permission set (e.g. arn:aws:iam::aws:policy/ReadOnlyAccess)."
+  type        = list(string)
+  default     = []
 }
 
 variable "account_ids" {
@@ -36,7 +37,7 @@ variable "session_duration" {
   default     = "PT1H"
 
   validation {
-    condition     = can(regex("^PT([0-9]+H)?([0-9]+M)?$", var.session_duration))
+    condition     = can(regex("^PT([0-9]+H)?([0-9]+M)?$", var.session_duration)) && var.session_duration != "PT"
     error_message = "session_duration must be a valid ISO 8601 duration (e.g. PT1H, PT30M, PT1H30M)."
   }
 }
