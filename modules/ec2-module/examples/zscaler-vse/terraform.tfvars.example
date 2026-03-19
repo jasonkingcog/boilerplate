@@ -1,0 +1,30 @@
+# Copy this file to terraform.tfvars and fill in values before running apply.
+# Never commit terraform.tfvars — it contains sensitive credentials.
+
+aws_region = "us-east-1"
+name       = "zscaler-vse-prod"
+
+# Find the AMI ID for your region:
+#   aws ec2 describe-images --owners aws-marketplace \
+#     --filters "Name=product-code,Values=<zscaler-product-code>" \
+#     --query "sort_by(Images,&CreationDate)[-1].ImageId" --output text
+ami_id        = "ami-REPLACE_ME"
+instance_type = "c6i.large"
+key_name      = null # e.g. "my-ec2-key"
+
+vpc_id            = "vpc-REPLACE_ME"
+mgmt_subnet_id    = "subnet-REPLACE_ME" # private subnet with NAT Gateway egress
+service_subnet_id = "subnet-REPLACE_ME" # private subnet reachable by internal clients
+
+mgmt_cidr   = "10.0.0.0/8"  # CIDR allowed to SSH to management interface
+client_cidr = "10.0.0.0/8"  # CIDR of internal proxy clients
+
+# From the ZIA Admin Portal → Infrastructure → Virtual Service Edges
+provision_key = "REPLACE_WITH_PROVISIONING_KEY"
+cloud_name    = "zscaler.net" # or zscloud.net, etc.
+
+tags = {
+  Environment = "prod"
+  Team        = "network"
+  ManagedBy   = "terraform"
+}
