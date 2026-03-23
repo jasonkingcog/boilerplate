@@ -1,27 +1,31 @@
 # Copy this file to terraform.tfvars and fill in values before running apply.
-# Never commit terraform.tfvars — it contains sensitive credentials.
+# Never commit terraform.tfvars — it may contain sensitive values.
 
 aws_region = "us-east-1"
-name       = "zscaler-vse-prod"
+name       = "zscaler-cc-prod"
 
 # Find the AMI ID for your region:
 #   aws ec2 describe-images --owners aws-marketplace \
-#     --filters "Name=product-code,Values=<zscaler-product-code>" \
+#     --filters "Name=product-code,Values=<zscaler-cc-product-code>" \
 #     --query "sort_by(Images,&CreationDate)[-1].ImageId" --output text
 ami_id        = "ami-REPLACE_ME"
-instance_type = "c6i.large"
+instance_type = "m5.large"
 key_name      = null # e.g. "my-ec2-key"
 
 vpc_id            = "vpc-REPLACE_ME"
-mgmt_subnet_id    = "subnet-REPLACE_ME" # private subnet with NAT Gateway egress
-service_subnet_id = "subnet-REPLACE_ME" # private subnet reachable by internal clients
+vpc_cidr          = "10.0.0.0/16"
+zscaler_subnet_id = "subnet-REPLACE_ME" # dedicated Zscaler subnet (both NICs share this subnet)
 
-mgmt_cidr   = "10.0.0.0/8"  # CIDR allowed to SSH to management interface
-client_cidr = "10.0.0.0/8"  # CIDR of internal proxy clients
+mgmt_cidr = "10.0.0.0/8" # CIDR allowed to SSH to management interface; set to "" to disable
 
-# From the ZIA Admin Portal → Infrastructure → Virtual Service Edges
-provision_key = "REPLACE_WITH_PROVISIONING_KEY"
-cloud_name    = "zscaler.net" # or zscloud.net, etc.
+# ─── Zscaler provisioning ─────────────────────────────────────────────────────
+# prov_url:    Administration → Cloud Connector Groups → Provisioning URL
+# secret_name: name of the Secrets Manager secret you created containing
+#              {"api_key":"...","username":"...","password":"..."}
+
+prov_url        = "https://connector.zscaler.net/api/v1/provUrl?name=REPLACE_ME"
+secret_name     = "zscaler-cloud-connector-credentials"
+http_probe_port = 50000
 
 tags = {
   Environment = "prod"

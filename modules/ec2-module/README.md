@@ -11,6 +11,7 @@ A reusable Terraform module for deploying EC2 instances, with first-class suppor
 - SSM Session Manager IAM role created automatically
 - User data via raw string or `templatefile()`
 - Termination protection and source/destination check toggles
+- Optional registration with instance-type NLB/ALB target groups
 
 ## Usage
 
@@ -113,6 +114,75 @@ module "appliance" {
 
 See [examples/zscaler-vse/](examples/zscaler-vse/) for a complete working example.
 
+### Behind an NLB — instance-type target group
+
+Use `target_group_arns` when the instance is the only NIC and the NLB targets it by instance ID:
+
+```hcl
+resource "aws_lb_target_group" "proxy" {
+  name        = "my-proxy-tg"
+  port        = 8080
+  protocol    = "TCP"
+  vpc_id      = var.vpc_id
+  target_type = "instance"
+}
+
+module "proxy" {
+  source = "git::https://github.com/your-org/ec2-module.git"
+
+  name          = "my-proxy"
+  ami_id        = "ami-0abcdef1234567890"
+  instance_type = "c6i.large"
+
+  vpc_id    = var.vpc_id
+  subnet_id = var.subnet_id
+
+  source_dest_check = false
+
+  target_group_arns = [aws_lb_target_group.proxy.arn]
+
+  tags = { Role = "proxy" }
+}
+```
+
+### Behind an NLB — IP-type target group (dual-NIC appliances)
+
+When using a secondary interface (e.g. Zscaler VSE service plane), the NLB should use an **IP-type** target group aimed at `secondary_private_ip`. Register the target outside the module so the correct interface IP is used:
+
+```hcl
+resource "aws_lb_target_group" "vse" {
+  name        = "vse-tg"
+  port        = 9400
+  protocol    = "TCP"
+  vpc_id      = var.vpc_id
+  target_type = "ip"
+}
+
+module "vse" {
+  source = "git::https://github.com/your-org/ec2-module.git"
+
+  name      = "zscaler-vse"
+  ami_id    = "ami-0abcdef1234567890"
+  vpc_id    = var.vpc_id
+  subnet_id = var.mgmt_subnet_id
+
+  secondary_subnet_id          = var.service_subnet_id
+  secondary_security_group_ids = [var.service_sg_id]
+  source_dest_check            = false
+
+  # Do NOT set target_group_arns here — target the secondary IP instead.
+  tags = { Role = "network-appliance" }
+}
+
+resource "aws_lb_target_group_attachment" "vse" {
+  target_group_arn = aws_lb_target_group.vse.arn
+  target_id        = module.vse.secondary_private_ip  # eth1
+  port             = 9400
+}
+```
+
+For a complete multi-AZ scaled deployment using `for_each` over AZ subnets, see the `core-network-hub` module.
+
 ---
 
 ## Inputs
@@ -145,6 +215,7 @@ See [examples/zscaler-vse/](examples/zscaler-vse/) for a complete working exampl
 | `disable_api_termination` | Enable termination protection. | `bool` | `false` | no |
 | `instance_initiated_shutdown_behavior` | Shutdown behavior: `"stop"` or `"terminate"`. | `string` | `"stop"` | no |
 | `source_dest_check` | Enable source/destination check. Set `false` for NAT/appliance instances. | `bool` | `true` | no |
+| `target_group_arns` | ARNs of **instance-type** target groups to register this instance with. For IP-type target groups (e.g. targeting a secondary ENI), create the `aws_lb_target_group_attachment` externally using the `secondary_private_ip` output. | `list(string)` | `[]` | no |
 | `tags` | Tags applied to all resources. | `map(string)` | `{}` | no |
 
 ### `ingress_rules` / `egress_rules` object schema
@@ -209,6 +280,14 @@ terraform apply
 ### Source/destination check
 
 Set `source_dest_check = false` for any instance that forwards traffic on behalf of other hosts — NAT instances, proxies, load balancers, and network appliances like Zscaler VSE.
+
+### Load balancer target group registration
+
+The module supports two patterns depending on the target group type:
+
+**Instance-type target groups** — use `target_group_arns`. The module creates `aws_lb_target_group_attachment` resources internally, registering the instance by ID. Suitable for single-NIC instances or when the primary interface handles load-balanced traffic.
+
+**IP-type target groups** — do not use `target_group_arns`. Instead, create the `aws_lb_target_group_attachment` resource in the calling module using the `secondary_private_ip` output as `target_id`. This is required for dual-NIC appliances (e.g. Zscaler VSE) where the NLB must send traffic to the service interface (eth1), not the management interface (eth0). Passing an instance ID to an IP-type target group is invalid and will error.
 
 ### SSM access
 

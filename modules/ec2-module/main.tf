@@ -88,6 +88,13 @@ resource "aws_iam_role_policy_attachment" "ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+resource "aws_iam_role_policy_attachment" "additional" {
+  for_each = var.iam_instance_profile == null && var.create_ssm_role ? toset(var.additional_policy_arns) : toset([])
+
+  role       = aws_iam_role.ssm[0].name
+  policy_arn = each.value
+}
+
 resource "aws_iam_instance_profile" "ssm" {
   count = var.iam_instance_profile == null && var.create_ssm_role ? 1 : 0
 
@@ -176,6 +183,17 @@ resource "aws_eip" "primary" {
   associate_with_private_ip = aws_network_interface.primary.private_ip
 
   tags = merge(local.tags, { Name = "${local.name}-eip" })
+
+  depends_on = [aws_instance.this]
+}
+
+# ─── Target Group Registration (instance-type TGs) ───────────────────────────
+
+resource "aws_lb_target_group_attachment" "this" {
+  for_each = toset(var.target_group_arns)
+
+  target_group_arn = each.value
+  target_id        = aws_instance.this.id
 
   depends_on = [aws_instance.this]
 }

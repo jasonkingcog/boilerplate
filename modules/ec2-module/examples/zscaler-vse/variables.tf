@@ -7,62 +7,63 @@ variable "aws_region" {
 variable "name" {
   description = "Name prefix for all resources."
   type        = string
-  default     = "zscaler-vse"
+  default     = "zscaler-cc"
 }
 
 variable "ami_id" {
-  description = "Zscaler VSE AMI ID from the AWS Marketplace (region-specific)."
+  description = "Zscaler Cloud Connector AMI ID from the AWS Marketplace (region-specific)."
   type        = string
 }
 
 variable "instance_type" {
-  description = "EC2 instance type. Zscaler recommends c6i.large or larger."
+  description = "EC2 instance type. Refer to the Zscaler sizing guide — m5.large is the minimum."
   type        = string
-  default     = "c6i.large"
+  default     = "m5.large"
 }
 
 variable "key_name" {
-  description = "EC2 key pair name for emergency SSH access."
+  description = "EC2 key pair name for emergency SSH access. Leave null to disable."
   type        = string
   default     = null
 }
 
 variable "vpc_id" {
-  description = "VPC to deploy the VSE into."
+  description = "VPC to deploy Cloud Connector into."
   type        = string
 }
 
-variable "mgmt_subnet_id" {
-  description = "Subnet for the management interface (eth0)."
+variable "vpc_cidr" {
+  description = "CIDR block of the VPC. Used to scope GWLB GENEVE and health check ingress rules."
   type        = string
 }
 
-variable "service_subnet_id" {
-  description = "Subnet for the service/data-plane interface (eth1)."
+variable "zscaler_subnet_id" {
+  description = "Subnet for both the management (eth0) and service (eth1) interfaces. Both NICs share the same dedicated Zscaler subnet."
   type        = string
 }
 
 variable "mgmt_cidr" {
-  description = "CIDR allowed to SSH into the VSE management interface."
+  description = "CIDR allowed to SSH into the Cloud Connector management interface. Leave empty to disable SSH ingress."
   type        = string
-}
-
-variable "client_cidr" {
-  description = "CIDR of internal clients that will send proxy traffic to the VSE."
-  type        = string
+  default     = ""
 }
 
 # ─── Zscaler provisioning ─────────────────────────────────────────────────────
 
-variable "provision_key" {
-  description = "Zscaler provisioning key obtained from the ZIA Admin Portal."
+variable "prov_url" {
+  description = "Cloud Connector provisioning URL from the Zscaler Cloud & Branch Connector Admin Portal (Administration → Cloud Connector Groups → Provisioning URL)."
   type        = string
-  sensitive   = true
 }
 
-variable "cloud_name" {
-  description = "Zscaler cloud name (e.g. zscaler.net, zscloud.net)."
+variable "secret_name" {
+  description = "Name of the AWS Secrets Manager secret containing Cloud Connector API credentials ({api_key, username, password}). Must exist before terraform apply."
   type        = string
+}
+
+variable "http_probe_port" {
+  description = "Port the GWLB health check probes on the Cloud Connector instance. Must match the port configured in the GWLB target group."
+  type        = number
+  default     = 50000
 }
 
 variable "tags" {

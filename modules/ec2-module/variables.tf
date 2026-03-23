@@ -114,6 +114,12 @@ variable "create_ssm_role" {
   default     = true
 }
 
+variable "additional_policy_arns" {
+  description = "List of additional IAM managed policy ARNs to attach to the auto-created SSM role. Only used when create_ssm_role = true and iam_instance_profile is null. Use this to grant the instance permissions beyond SSM — for example, the EC2 describe and Secrets Manager permissions required by Zscaler Cloud Connector."
+  type        = list(string)
+  default     = []
+}
+
 # ─── Storage ──────────────────────────────────────────────────────────────────
 
 variable "root_volume_size" {
@@ -197,4 +203,10 @@ variable "source_dest_check" {
   description = "Enable source/destination check on the primary interface. Set false for NAT/appliance instances."
   type        = bool
   default     = true
+}
+
+variable "target_group_arns" {
+  description = "ARNs of instance-type target groups to register this instance with. For IP-type target groups (e.g. targeting a secondary ENI), register externally using the secondary_private_ip output."
+  type        = list(string)
+  default     = []
 }
