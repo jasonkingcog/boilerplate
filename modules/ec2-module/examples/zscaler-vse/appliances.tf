@@ -25,6 +25,9 @@
 locals {
   cc_enabled = var.create_zscaler_cloud_connector
 
+  # LB and target group names only allow alphanumeric characters and hyphens.
+  cc_name = replace(var.name, "_", "-")
+
   # user_data passed to each Cloud Connector instance.
   # Format matches the [ZSCALER] block expected by Cloud Connector's init process.
   cc_user_data = local.cc_enabled ? join("\n", [
@@ -127,7 +130,7 @@ resource "aws_security_group" "zscaler_cc_service" {
   count = local.cc_enabled ? 1 : 0
 
   name        = "${var.name}-zscaler-cc-service-sg"
-  description = "Zscaler Cloud Connector service interface — GWLB GENEVE traffic"
+  description = "Zscaler Cloud Connector service interface - GWLB GENEVE traffic"
   vpc_id      = module.hub_vpc.vpc_id
 
   tags = merge(local.common_tags, { Name = "${var.name}-zscaler-cc-service-sg" })
@@ -164,8 +167,6 @@ resource "aws_vpc_security_group_egress_rule" "zscaler_cc_service_all" {
 
   security_group_id = aws_security_group.zscaler_cc_service[0].id
   description       = "Allow all outbound from service interface"
-  from_port         = -1
-  to_port           = -1
   ip_protocol       = "-1"
   cidr_ipv4         = "0.0.0.0/0"
 
@@ -195,7 +196,7 @@ module "zscaler_cc" {
   # Cloud Connector forwards traffic — disable source/dest check on both NICs
   source_dest_check = false
 
-  ingress_rules = [
+  ingress_rules = var.zscaler_cc_mgmt_cidr != "" ? [
     {
       description = "SSH from management CIDR"
       from_port   = 22
@@ -203,7 +204,7 @@ module "zscaler_cc" {
       protocol    = "tcp"
       cidr_blocks = [var.zscaler_cc_mgmt_cidr]
     },
-  ]
+  ] : []
 
   # Grant Cloud Connector the permissions it needs beyond SSM
   additional_policy_arns = [aws_iam_policy.zscaler_cc[0].arn]
@@ -221,13 +222,13 @@ module "zscaler_cc" {
 resource "aws_lb" "zscaler_cc" {
   count = local.cc_enabled ? 1 : 0
 
-  name                             = "${var.name}-cc-gwlb"
+  name                             = "${local.cc_name}-cc-gwlb"
   internal                         = true
   load_balancer_type               = "gateway"
   subnets                          = module.hub_vpc.zscaler_subnet_ids_list
   enable_cross_zone_load_balancing = var.zscaler_cc_cross_zone_lb_enabled
 
-  tags = merge(local.common_tags, { Name = "${var.name}-cc-gwlb" })
+  tags = merge(local.common_tags, { Name = "${local.cc_name}-cc-gwlb" })
 }
 
 # ─── GWLB target group (IP type, GENEVE port 6081) ───────────────────────────
@@ -237,7 +238,7 @@ resource "aws_lb" "zscaler_cc" {
 resource "aws_lb_target_group" "zscaler_cc" {
   count = local.cc_enabled ? 1 : 0
 
-  name        = "${var.name}-cc-gwlb-tg"
+  name        = "${local.cc_name}-cc-gwlb-tg"
   port        = 6081
   protocol    = "GENEVE"
   vpc_id      = module.hub_vpc.vpc_id

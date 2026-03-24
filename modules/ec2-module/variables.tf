@@ -69,11 +69,11 @@ variable "security_group_ids" {
 }
 
 variable "ingress_rules" {
-  description = "Ingress rules for the module-managed security group."
+  description = "Ingress rules for the module-managed security group. Omit from_port/to_port when protocol is \"-1\"."
   type = list(object({
     description = string
-    from_port   = number
-    to_port     = number
+    from_port   = optional(number)
+    to_port     = optional(number)
     protocol    = string
     cidr_blocks = list(string)
   }))
@@ -81,19 +81,17 @@ variable "ingress_rules" {
 }
 
 variable "egress_rules" {
-  description = "Egress rules for the module-managed security group. Defaults to allow-all."
+  description = "Egress rules for the module-managed security group. Defaults to allow-all. Omit from_port/to_port when protocol is \"-1\"."
   type = list(object({
     description = string
-    from_port   = number
-    to_port     = number
+    from_port   = optional(number)
+    to_port     = optional(number)
     protocol    = string
     cidr_blocks = list(string)
   }))
   default = [
     {
       description = "Allow all outbound"
-      from_port   = 0
-      to_port     = 0
       protocol    = "-1"
       cidr_blocks = ["0.0.0.0/0"]
     }

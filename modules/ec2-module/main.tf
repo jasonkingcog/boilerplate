@@ -37,27 +37,49 @@ resource "aws_security_group" "this" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "this" {
-  for_each = { for idx, r in var.ingress_rules : idx => r }
+  # Flatten rules × CIDRs — aws_vpc_security_group_ingress_rule accepts one
+  # CIDR per resource, unlike the legacy inline ingress block.
+  for_each = {
+    for pair in flatten([
+      for idx, r in var.ingress_rules : [
+        for cidr in r.cidr_blocks : {
+          key  = "${idx}-${cidr}"
+          rule = r
+          cidr = cidr
+        }
+      ]
+    ]) : pair.key => pair
+  }
 
   security_group_id = aws_security_group.this.id
-  description       = each.value.description
-  from_port         = each.value.from_port
-  to_port           = each.value.to_port
-  ip_protocol       = each.value.protocol
-  cidr_ipv4         = join(",", each.value.cidr_blocks)
+  description       = each.value.rule.description
+  from_port         = each.value.rule.protocol == "-1" ? null : each.value.rule.from_port
+  to_port           = each.value.rule.protocol == "-1" ? null : each.value.rule.to_port
+  ip_protocol       = each.value.rule.protocol
+  cidr_ipv4         = each.value.cidr
 
   tags = local.tags
 }
 
 resource "aws_vpc_security_group_egress_rule" "this" {
-  for_each = { for idx, r in var.egress_rules : idx => r }
+  for_each = {
+    for pair in flatten([
+      for idx, r in var.egress_rules : [
+        for cidr in r.cidr_blocks : {
+          key  = "${idx}-${cidr}"
+          rule = r
+          cidr = cidr
+        }
+      ]
+    ]) : pair.key => pair
+  }
 
   security_group_id = aws_security_group.this.id
-  description       = each.value.description
-  from_port         = each.value.from_port
-  to_port           = each.value.to_port
-  ip_protocol       = each.value.protocol
-  cidr_ipv4         = join(",", each.value.cidr_blocks)
+  description       = each.value.rule.description
+  from_port         = each.value.rule.protocol == "-1" ? null : each.value.rule.from_port
+  to_port           = each.value.rule.protocol == "-1" ? null : each.value.rule.to_port
+  ip_protocol       = each.value.rule.protocol
+  cidr_ipv4         = each.value.cidr
 
   tags = local.tags
 }
@@ -89,10 +111,13 @@ resource "aws_iam_role_policy_attachment" "ssm" {
 }
 
 resource "aws_iam_role_policy_attachment" "additional" {
-  for_each = var.iam_instance_profile == null && var.create_ssm_role ? toset(var.additional_policy_arns) : toset([])
+  # count instead of for_each — policy ARNs may be apply-time values (e.g. from
+  # aws_iam_policy resources) and Terraform requires for_each keys to be known
+  # at plan time.
+  count = var.iam_instance_profile == null && var.create_ssm_role ? length(var.additional_policy_arns) : 0
 
   role       = aws_iam_role.ssm[0].name
-  policy_arn = each.value
+  policy_arn = var.additional_policy_arns[count.index]
 }
 
 resource "aws_iam_instance_profile" "ssm" {
@@ -156,14 +181,6 @@ resource "aws_instance" "this" {
     network_interface_id = aws_network_interface.primary.id
   }
 
-  # Secondary interface — index 1, only when configured
-  dynamic "network_interface" {
-    for_each = aws_network_interface.secondary
-    content {
-      device_index         = 1
-      network_interface_id = network_interface.value.id
-    }
-  }
 
   tags = local.tags
 
@@ -171,6 +188,18 @@ resource "aws_instance" "this" {
     # AMI changes require replacement; make callers explicit about this.
     ignore_changes = [ami]
   }
+}
+
+# ─── Secondary NIC attachment ─────────────────────────────────────────────────
+# Attached post-launch so the primary (device_index=0) is the only NIC present
+# at instance creation — required for Marketplace AMIs that validate launch config.
+
+resource "aws_network_interface_attachment" "secondary" {
+  count = var.secondary_subnet_id != null ? 1 : 0
+
+  instance_id          = aws_instance.this.id
+  network_interface_id = aws_network_interface.secondary[0].id
+  device_index         = 1
 }
 
 # ─── Optional EIP (primary interface) ────────────────────────────────────────

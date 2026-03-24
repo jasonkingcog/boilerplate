@@ -165,7 +165,7 @@ module "zscaler_cc" {
 
 resource "aws_security_group" "service" {
   name        = "${var.name}-service-sg"
-  description = "Zscaler Cloud Connector service interface — GWLB GENEVE traffic"
+  description = "Zscaler Cloud Connector service interface - GWLB GENEVE traffic"
   vpc_id      = var.vpc_id
 
   tags = merge(var.tags, { Name = "${var.name}-service-sg" })
@@ -196,8 +196,6 @@ resource "aws_vpc_security_group_ingress_rule" "health" {
 resource "aws_vpc_security_group_egress_rule" "service_all" {
   security_group_id = aws_security_group.service.id
   description       = "Allow all outbound from service interface"
-  from_port         = -1
-  to_port           = -1
   ip_protocol       = "-1"
   cidr_ipv4         = "0.0.0.0/0"
 
